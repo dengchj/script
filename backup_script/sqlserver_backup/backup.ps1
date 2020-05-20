@@ -78,7 +78,8 @@ try {
         }
 
         Write-ULog -LogLevel Info -UUID $UUID "Upload Backup [BEGIN]"
-        [string]$remoteBackupFile = "${DBId}/${BackupFileName}"
+        [string]$Timestr = (Get-Date -Format 'yyyy/MM/dd/')
+        [string]$remoteBackupFile = "${Timestr}${DBId}/${BackupFileName}"
         try {
             &"$PSScriptRoot\upload.ps1" -UUID $UUID -Bucket $DestBucket -LocalFile $localBackupFile -RemoteFile $remoteBackupFile
             if ( ! $? ) {

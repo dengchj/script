@@ -5,7 +5,7 @@ param (
     $UUID,
     [Parameter(Mandatory=$true, Position=0)]
     [String]
-    $BackupHost,
+    $DestBucket,
     [Parameter(Mandatory=$true, Position=1)]
     [String]
     $DBId,
@@ -14,7 +14,7 @@ param (
     $BackupFileName
 )
 
-[string]$BaseDir = "C:\SqlServerBackup"
+[string]$BaseDir = "C:\MySQLBackup"
 [string]$LogDir = $BaseDir + "\Log"
 . "$PSScriptRoot\ulog.ps1"
 
@@ -22,9 +22,7 @@ if (!$UUID) {
     $UUID = [System.Guid]::NewGuid().ToString()
 }
 
-$var=(Get-Date -Format 'yyyyMMddHHmmss')
-
-Write-ULog -LogLevel Debug -UUID $UUID "$PSCommandPath -UUID $UUID -BackupHost $BackupHost -DBId $DBId -BackupFileName $BackupFileName"
+Write-ULog -LogLevel Debug -UUID $UUID "$PSCommandPath -UUID $UUID -DestBucket $DestBucket -DBId $DBId -BackupFileName $BackupFileName"
 
 try {
     [string]$BackupDir = "${BaseDir}\DataBak"
@@ -50,23 +48,29 @@ try {
         Write-ULog -LogLevel Info -UUID $UUID "Backup DB Instance [BEGIN]"
         try {
             Push-Location
-            Import-Module SQLPS
+            Import-Module MySqlCmdlets # 需要确认已安装
             Pop-Location
 
-            $instance = $(Get-ChildItem "SQLSERVER:\\SQL\${env:COMPUTERNAME}")[0]
-            #$needBackupDatabases = $instance.Databases | Where-Object -FilterScript { $_.Name -notin @("master", "msdb", "tempdb", "model", "ReportServer", "ReportServerTempDB") }
-            $needBackupDatabases = $instance.Databases | Where-Object -FilterScript { $_.Name -notin @("msdb", "tempdb", "model") }
+            [string] $PasswordFile = "${BaseDir}\mysqlpwd.conf"
+            [string] $UserName = 'root'
+            # 
+            [SecureString] $password = Get-Content $PasswordFile|ConvertTo-SecureString -AsPlainText -Force
+            Connect-MySqlServer -Server $server -UserName $UserName -Password $password
+
+            $Databases = "mysql","world","sys" # for test
+            $needBackupDatabases = $Databases | Where-Object -FilterScript { $_.Name -notin @("information_schema", "performance_schema") }
             foreach ($database in $needBackupDatabases ) {
-                Backup-SqlDatabase -DatabaseObject $database -BackupAction Database -BackupFile "$BackupDir\$($database.Name).bak" -CompressionOption On
+                New-MySqlDatabaseDump –Database $database | Out-File "$BackupDir\$database.bak"
             }
         } finally {
             Write-ULog -LogLevel Info -UUID $UUID "Backup DB Instance [END]"
+            Disconnect-MySqlServer
         }
 
         Write-ULog -LogLevel Info -UUID $UUID "Compress Backup [BEGIN]"
         [string]$localBackupFile = "${BaseDir}\backup_tmp.rar"
         try {
-            # 如果本地备份文件已经存在, compress backup当中会去先删�?
+            # 如果本地备份文件已经存在, compress backup当中会去先删
             &"$PSScriptRoot\compress_backup.ps1" -UUID $UUID -SrcDir $BackupDir -DestFile $localBackupFile
             if ( ! $? ) {
                 $errMsg = "Compress backup file failed"
@@ -74,15 +78,17 @@ try {
                 throw $errMsg
             }
             Write-ULog -LogLevel Info -UUID $UUID "Remove backup directory after archiving: ${BackupDir}"
+            # 打包后删除原始dump文件
             Remove-Item -Path $BackupDir -Recurse
         } finally {
             Write-ULog -LogLevel Info -UUID $UUID "Compress Backup [END]"
         }
 
         Write-ULog -LogLevel Info -UUID $UUID "Upload Backup [BEGIN]"
-        [string]$remoteBackupFile = "${DBId}/${BackupFileName}"
+        [string]$Timestr = (Get-Date -Format 'yyyy/MM/dd/')
+        [string]$remoteBackupFile = "${Timestr}${DBId}/${BackupFileName}"
         try {
-            &"$PSScriptRoot\upload_umstor.ps1" -UUID $UUID -Bucket $BackupHost -LocalFile $localBackupFile -RemoteFile $remoteBackupFile
+            &"$PSScriptRoot\upload.ps1" -UUID $UUID -Bucket $DestBucket -LocalFile $localBackupFile -RemoteFile $remoteBackupFile
             if ( ! $? ) {
                 $errMsg = "Upload backup file failed"
                 Write-ULog -LogLevel Error -UUID $UUID $errMsg

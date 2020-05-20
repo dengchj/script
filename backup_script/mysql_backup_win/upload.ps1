@@ -22,8 +22,8 @@ if (!$UUID) {
 
 Write-ULog -LogLevel Debug -UUID $UUID "$PSCommandPath -UUID $UUID -Bucket $Bucket -LocalFile $LocalFile -RemoteFile $RemoteFile"
 try {
-    Write-ULog -LogLevel Debug -UUID $UUID "python $PSScriptRoot\backup_to_umstor.py $Bucket $LocalFile $RemoteFile"
-    python $PSScriptRoot\backup_to_umstor.py $Bucket $LocalFile $RemoteFile
+    Write-ULog -LogLevel Debug -UUID $UUID "python $PSScriptRoot\upload_to_umstor.py $Bucket $LocalFile $RemoteFile"
+    python $PSScriptRoot\upload_to_umstor.py $Bucket $LocalFile $RemoteFile
 } finally {
     Write-ULog -LogLevel Debug -UUID $UUID "SCRIPT END"
 }

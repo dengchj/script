@@ -10,7 +10,8 @@ param (
 
     [Parameter(Position=1)]
     [String]
-    $SourceFile, # 若不指定具体文件，则打包上传文件夹下所有文�?
+    $SourceFile, # 若不指定具体文件，则打包上传文件夹下所有文件
+
     [Parameter(Mandatory=$true, Position=2)]
     [String]
     $DestBucket,
@@ -39,11 +40,13 @@ Function CompressProcess
             Write-ULog -LogLevel Info -UUID $UUID "Remove destination file first: $DestFile"
             Remove-Item -Path $DestFile
 
-            # WinRAR版本, -m0表示不压�? 因为SQLServer本身的备份已经压缩过�? 不需要再压缩; -r表示包含子目�?            # 详情请见winrar的online manual: http://acritum.com/software/manuals/winrar/ 
+            # WinRAR版本, -m0表示不压缩, 因为SQLServer本身的备份已经压缩过了, 不需要再压缩; -r表示包含子目录
+            # 详情请见winrar的online manual: http://acritum.com/software/manuals/winrar/ 
             Write-ULog -LogLevel Debug -UUID $UUID "C:\Program Files\WinRAR\Rar.exe a -r -m0 $DestFile $SrcPath"
             & "C:\Program Files\WinRAR\Rar.exe" a -r -m0 $DestFile $SrcPath
 
-            # 用zip压缩版本, 先暂时注�?            #Add-Type -AssemblyName "System.IO.Compression.FileSystem"
+            # 用zip压缩版本, 先暂时注释
+            #Add-Type -AssemblyName "System.IO.Compression.FileSystem"
             #[System.IO.Compression.ZipFile]::CreateFromDirectory($SrcPath, $DestFile, [System.IO.Compression.CompressionLevel]::NoCompression, $true);
 
         } finally {
@@ -58,10 +61,10 @@ Function UploadProcess
 {   
     param($DestBucket,$RemoteFile,$LocalFile)
     # 若是每天备份次数不多余一次，则可以建立基于日期的层级目录，格式如: BUCKET/2019/12/27/test.file
-    [string]$Timestr = (Get-Date -Format 'yyyyMMddHHmmss')
-    [string]$DestObject = $Timestr+$RemoteFile
+    [string]$Timestr = (Get-Date -Format 'yyyy/MM/dd/')
+    [string]$DestObject = $Timestr+"win_file/"+$RemoteFile
     try {
-        Write-ULog -LogLevel Debug -UUID $UUID "python $PSScriptRoot\upload_to_umstor.py $DestBucket $DestObject $DestObject"
+        Write-ULog -LogLevel Debug -UUID $UUID "python $PSScriptRoot\upload_to_umstor.py $DestBucket $LocalFile $DestObject"
         python $PSScriptRoot\upload_to_umstor.py $DestBucket $LocalFile $DestObject
     } finally {
         Write-ULog -LogLevel Info -UUID $UUID "Upload Backup [END]"

@@ -12,8 +12,8 @@ def upload_file(endpoint, file_name, bucket, object_name=None):
     :param object_name: S3 object name. If not specified then same as file_name
     :return: True if file was uploaded, else False
     """
-    access_key = 'BG2NUY0ZPBI9DD115L7N'
-    secret_key = 'gLWkWg7PrPDigOcdxlsrULxeJDX3PVCwiI3jBCGe'
+    access_key = 'user1'
+    secret_key = 'user1'
 
     # If S3 object_name was not specified, use file_name
     if object_name is None:
@@ -37,8 +37,7 @@ def main():
     file_name = sys.argv[2]
     object_name = sys.argv[3]
 
-    endpoint = "http://192.168.151.5:8000"      
-    #endpoint = "http://192.168.180.138:8000"
+    endpoint = "http://192.168.180.138:8000"      
 
     # Set up logging
     logging.basicConfig(level=logging.DEBUG,
